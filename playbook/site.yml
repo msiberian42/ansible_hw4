@@ -1,185 +1,27 @@
 ---
 - name: Install Clickhouse
   hosts: clickhouse
-  handlers:
-    - name: Start clickhouse service
-      become: true
-      ansible.builtin.service:
-        name: clickhouse-server
-        state: restarted
+  become: true
+
+  roles:
+    - clickhouse
+
   tasks:
-    - name: Download ClickHouse packages
-      block:
-        - name: Get clickhouse distrib
-          ansible.builtin.get_url:
-            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.noarch.rpm"
-            dest: "/tmp/{{ item }}-{{ clickhouse_version }}.rpm"
-            mode: "0644"
-          with_items: "{{ clickhouse_packages }}"
-      rescue:
-        - name: Get clickhouse distrib
-          ansible.builtin.get_url:
-            url: "https://packages.clickhouse.com/rpm/stable/clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
-            dest: "/tmp/clickhouse-common-static-{{ clickhouse_version }}.rpm"
-            mode: "0644"
-    - name: Install clickhouse packages
-      become: true
-      ansible.builtin.dnf:
-        name:
-          - "/tmp/clickhouse-common-static-{{ clickhouse_version }}.rpm"
-          - "/tmp/clickhouse-client-{{ clickhouse_version }}.rpm"
-          - "/tmp/clickhouse-server-{{ clickhouse_version }}.rpm"
-        disable_gpg_check: true
-      notify: Start clickhouse service
-    - name: Flush handlers
-      ansible.builtin.meta: flush_handlers
-    - name: Create database
-      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+    - name: Create logs database
+      ansible.builtin.command: "clickhouse-client -q 'CREATE DATABASE IF NOT EXISTS logs'"
       register: create_db
-      failed_when: create_db.rc != 0 and create_db.rc != 82
       changed_when: create_db.rc == 0
 
 - name: Install Vector
   hosts: vector
   become: true
 
-  handlers:
-    - name: Restart vector
-      ansible.builtin.systemd:
-        name: vector
-        state: restarted
-        enabled: true
-        daemon_reload: true
-
-  tasks:
-    - name: Download Vector
-      ansible.builtin.get_url:
-        url: "https://packages.timber.io/vector/{{ vector_version }}/vector-{{ vector_version }}-{{ vector_arch }}-unknown-linux-gnu.tar.gz"
-        dest: "/tmp/vector-{{ vector_version }}.tar.gz"
-        mode: "0644"
-
-    - name: Create Vector directory
-      ansible.builtin.file:
-        path: "{{ vector_install_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Unarchive Vector
-      ansible.builtin.unarchive:
-        src: "/tmp/vector-{{ vector_version }}.tar.gz"
-        dest: "{{ vector_install_dir }}"
-        remote_src: true
-        creates: "{{ vector_install_dir }}/vector"
-
-    - name: Install Vector binary
-      ansible.builtin.file:
-        src: "{{ vector_install_dir }}/vector-{{ vector_arch }}-unknown-linux-gnu/bin/vector"
-        dest: "/usr/local/bin/vector"
-        state: link
-
-    - name: Create Vector config directory
-      ansible.builtin.file:
-        path: "{{ vector_config_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Create Vector data directory
-      ansible.builtin.file:
-        path: "/var/lib/vector"
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Deploy Vector configuration
-      ansible.builtin.template:
-        src: "vector.toml.j2"
-        dest: "{{ vector_config_dir }}/vector.toml"
-        mode: "0644"
-      notify: Restart vector
-
-    - name: Deploy Vector systemd unit
-      ansible.builtin.template:
-        src: "vector.service.j2"
-        dest: "/etc/systemd/system/vector.service"
-        mode: "0644"
-      notify: Restart vector
+  roles:
+    - vector
 
 - name: Install LightHouse
   hosts: lighthouse
   become: true
 
-  handlers:
-    - name: Restart nginx
-      ansible.builtin.systemd:
-        name: nginx
-        state: restarted
-        enabled: true
-        daemon_reload: true
-
-  tasks:
-    - name: Install nginx
-      ansible.builtin.dnf:
-        name: nginx
-        state: present
-
-    - name: Download LightHouse
-      ansible.builtin.get_url:
-        url: "{{ lighthouse_repo }}"
-        dest: "{{ lighthouse_archive }}"
-        mode: "0644"
-
-    - name: Install SELinux utilities
-      ansible.builtin.dnf:
-        name: policycoreutils-python-utils
-        state: present
-
-    - name: Set SELinux context for LightHouse
-      community.general.sefcontext:
-        target: "{{ lighthouse_install_dir }}(/.*)?"
-        setype: httpd_sys_content_t
-        state: present
-
-    - name: Restore SELinux context
-      ansible.builtin.command:
-        cmd: "restorecon -Rv {{ lighthouse_install_dir }}"
-      register: restorecon_result
-      changed_when: "'restorecon reset' in restorecon_result.stdout"
-
-
-    - name: Create LightHouse directory
-      ansible.builtin.file:
-        path: "{{ lighthouse_install_dir }}"
-        state: directory
-        owner: nginx
-        group: nginx
-        mode: "0755"
-
-    - name: Unarchive LightHouse
-      ansible.builtin.unarchive:
-        src: "{{ lighthouse_archive }}"
-        dest: "/tmp"
-        remote_src: true
-
-    - name: Copy LightHouse files
-      ansible.builtin.copy:
-        src: "/tmp/lighthouse-master/"
-        dest: "{{ lighthouse_install_dir }}/"
-        remote_src: true
-        owner: nginx
-        group: nginx
-        mode: "0755"
-      notify: Restart nginx
-
-    - name: Deploy nginx configuration
-      ansible.builtin.template:
-        src: "lighthouse.conf.j2"
-        dest: "/etc/nginx/conf.d/lighthouse.conf"
-        mode: "0644"
-      notify: Restart nginx
-
-    - name: Start nginx
-      ansible.builtin.systemd:
-        name: nginx
-        state: started
-        enabled: true
+  roles:
+    - lighthouse

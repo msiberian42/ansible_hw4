@@ -2,18 +2,18 @@
 clickhouse:
   hosts:
     clickhouse-01:
-      ansible_host: 51.250.93.97
+      ansible_host: 62.84.116.209
       ansible_user: pavel
       ansible_python_interpreter: /usr/bin/python3
 vector:
   hosts:
     vector-01:
-      ansible_host: 62.84.113.21
+      ansible_host: 93.77.178.243
       ansible_user: pavel
       ansible_python_interpreter: /usr/bin/python3
 lighthouse:
   hosts:
     lighthouse-01:
-      ansible_host: 51.250.66.31
+      ansible_host: 89.169.134.21
       ansible_user: pavel
       ansible_python_interpreter: /usr/bin/python3
