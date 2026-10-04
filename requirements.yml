@@ -1,0 +1,10 @@
+---
+  - src: https://github.com/msiberian42/vector-role.git
+    scm: git
+    version: main
+    name: vector 
+
+  - src: https://github.com/msiberian42/lighthouse-role.git
+    scm: git
+    version: main
+    name: lighthouse
